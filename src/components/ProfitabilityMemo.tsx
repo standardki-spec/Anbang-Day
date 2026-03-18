@@ -1,0 +1,227 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+
+interface MemoItem {
+  id: string;
+  topic: string;
+  descriptions: string[];
+  impact: 'positive' | 'negative';
+}
+
+interface ProfitabilityMemoProps {
+  year: number;
+  month: number;
+}
+
+export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, month }) => {
+  const [memos, setMemos] = useState<MemoItem[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMemos, setEditMemos] = useState<MemoItem[]>([]);
+
+  const storageKey = `profitability_memo_${year}_${month}`;
+
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // Migrate old data format (description: string) to new format (descriptions: string[])
+        const migrated = parsed.map((item: any) => ({
+          ...item,
+          descriptions: item.descriptions || (item.description ? [item.description] : [''])
+        }));
+        setMemos(migrated);
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setMemos([]);
+    }
+    setIsEditing(false);
+  }, [year, month, storageKey]);
+
+  const handleEdit = () => {
+    setEditMemos([...memos]);
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    // Filter out empty descriptions before saving
+    const cleanedMemos = editMemos.map(memo => ({
+      ...memo,
+      descriptions: memo.descriptions.filter(d => d.trim() !== '')
+    }));
+    setMemos(cleanedMemos);
+    localStorage.setItem(storageKey, JSON.stringify(cleanedMemos));
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  const addMemo = () => {
+    setEditMemos([...editMemos, { id: Date.now().toString(), topic: '', descriptions: [''], impact: 'negative' }]);
+  };
+
+  const updateMemo = (id: string, field: keyof MemoItem, value: any) => {
+    setEditMemos(editMemos.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+
+  const updateDescription = (memoId: string, index: number, value: string) => {
+    setEditMemos(editMemos.map(m => {
+      if (m.id === memoId) {
+        const newDescs = [...m.descriptions];
+        newDescs[index] = value;
+        return { ...m, descriptions: newDescs };
+      }
+      return m;
+    }));
+  };
+
+  const addDescription = (memoId: string) => {
+    setEditMemos(editMemos.map(m => {
+      if (m.id === memoId) {
+        return { ...m, descriptions: [...m.descriptions, ''] };
+      }
+      return m;
+    }));
+  };
+
+  const removeDescription = (memoId: string, index: number) => {
+    setEditMemos(editMemos.map(m => {
+      if (m.id === memoId) {
+        const newDescs = m.descriptions.filter((_, idx) => idx !== index);
+        return { ...m, descriptions: newDescs.length > 0 ? newDescs : [''] };
+      }
+      return m;
+    }));
+  };
+
+  const removeMemo = (id: string) => {
+    setEditMemos(editMemos.filter(m => m.id !== id));
+  };
+
+  return (
+    <div className="h-full flex flex-col min-h-[400px]">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">주요 변동 사유</h3>
+        <div>
+          {!isEditing ? (
+            <button onClick={handleEdit} className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors" title="수정">
+              <Edit2 size={18} />
+            </button>
+          ) : (
+            <div className="flex space-x-2">
+              <button onClick={handleSave} className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors" title="저장">
+                <Save size={18} />
+              </button>
+              <button onClick={handleCancel} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="취소">
+                <X size={18} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto pr-2">
+        {!isEditing ? (
+          memos.length > 0 ? (
+            <div className="space-y-6">
+              {memos.map(memo => (
+                <div key={memo.id} className="flex flex-col gap-2">
+                  <div className={`font-bold text-lg ${memo.impact === 'positive' ? 'text-blue-600' : 'text-red-600'}`}>
+                    {memo.topic} {memo.impact === 'positive' ? '(+)' : '(-)'}
+                  </div>
+                  {memo.descriptions && memo.descriptions.length > 0 ? (
+                    <ul className="list-disc list-outside ml-5 text-base text-gray-800 space-y-1.5 leading-relaxed">
+                      {memo.descriptions.map((desc, idx) => (
+                        <li key={idx} className="pl-1">{desc}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-base text-gray-400 italic pl-3 border-l-2 border-gray-200">설명 없음</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-400 text-base italic flex h-full items-center justify-center text-center">
+              등록된 변동 사유가 없습니다.<br/>우측 상단의 수정 버튼을 눌러 추가해보세요.
+            </div>
+          )
+        ) : (
+          <div className="space-y-4">
+            {editMemos.map(memo => (
+              <div key={memo.id} className="p-4 border border-gray-200 rounded-lg relative bg-gray-50">
+                <button 
+                  onClick={() => removeMemo(memo.id)}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                  title="삭제"
+                >
+                  <Trash2 size={16} />
+                </button>
+                
+                <div className="flex gap-3 mb-4 pr-6">
+                  <select 
+                    value={memo.impact}
+                    onChange={(e) => updateMemo(memo.id, 'impact', e.target.value)}
+                    className={`text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${memo.impact === 'positive' ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold'}`}
+                  >
+                    <option value="positive">긍정 (+)</option>
+                    <option value="negative">부정 (-)</option>
+                  </select>
+                  
+                  <input 
+                    type="text" 
+                    placeholder="주제 입력 (예: 매출 감소)" 
+                    value={memo.topic}
+                    onChange={(e) => updateMemo(memo.id, 'topic', e.target.value)}
+                    className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  {memo.descriptions.map((desc, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <span className="mt-2 text-gray-400 text-xs">●</span>
+                      <textarea 
+                        placeholder="상세 설명 입력" 
+                        value={desc}
+                        onChange={(e) => updateDescription(memo.id, idx, e.target.value)}
+                        rows={2}
+                        className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 resize-y"
+                      />
+                      <button 
+                        onClick={() => removeDescription(memo.id, idx)} 
+                        className="mt-1 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        title="설명 삭제"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    onClick={() => addDescription(memo.id)}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 ml-4 mt-2 font-medium"
+                  >
+                    <Plus size={14} /> 설명 추가
+                  </button>
+                </div>
+              </div>
+            ))}
+            
+            <button 
+              onClick={addMemo}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-600 flex items-center justify-center gap-2 transition-colors"
+            >
+              <Plus size={18} />
+              <span className="font-medium">새 항목 추가</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
