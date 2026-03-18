@@ -267,6 +267,10 @@ async function startServer() {
         const currentVal = currMonthCol !== -1 ? parseNumber(row[currMonthCol]) : 0;
         const prevVal = prevMonthCol !== -1 ? parseNumber(row[prevMonthCol]) : 0;
         
+        const growthRate = cat.main === '매출'
+          ? (prevVal !== 0 ? ((currentVal - prevVal) / Math.abs(prevVal)) * 100 : 0)
+          : (currSales !== 0 && prevSales !== 0 ? (currentVal / currSales * 100) - (prevVal / prevSales * 100) : 0);
+
         return {
           mainCategory: cat.main,
           subCategory: cat.sub,
@@ -274,7 +278,7 @@ async function startServer() {
           prevPercent: prevSales !== 0 ? (prevVal / prevSales) * 100 : 0,
           currValue: currentVal,
           currPercent: currSales !== 0 ? (currentVal / currSales) * 100 : 0,
-          growthRate: prevVal !== 0 ? ((currentVal - prevVal) / Math.abs(prevVal)) * 100 : 0
+          growthRate: growthRate
         };
       });
 
@@ -283,10 +287,11 @@ async function startServer() {
         
         let currentYtd = 0;
         let prevYtd = 0;
+        const actualLastYear = currentYear - 1;
 
         for (let m = 1; m <= currentMonth; m++) {
           const cCol = getColIdx(currentYear, m);
-          const pCol = getColIdx(prevYear, m);
+          const pCol = getColIdx(actualLastYear, m);
           if (cCol !== -1) currentYtd += parseNumber(row[cCol]);
           if (pCol !== -1) prevYtd += parseNumber(row[pCol]);
         }
@@ -299,7 +304,7 @@ async function startServer() {
         } else {
           // For other categories, we sum the 12 months of the previous year
           for (let m = 1; m <= 12; m++) {
-            const pCol = getColIdx(prevYear, m);
+            const pCol = getColIdx(actualLastYear, m);
             if (pCol !== -1) prevYearTotal += parseNumber(row[pCol]);
           }
         }

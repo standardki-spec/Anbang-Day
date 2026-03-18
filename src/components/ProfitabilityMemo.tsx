@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { ProfitabilityData } from '../data/mockData';
 
 interface MemoItem {
   id: string;
   topic: string;
+  accountName?: string;
   descriptions: string[];
   impact: 'positive' | 'negative';
 }
@@ -11,32 +13,68 @@ interface MemoItem {
 interface ProfitabilityMemoProps {
   year: number;
   month: number;
+  data: ProfitabilityData;
 }
 
-export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, month }) => {
+export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, month, data }) => {
   const [memos, setMemos] = useState<MemoItem[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editMemos, setEditMemos] = useState<MemoItem[]>([]);
 
   const storageKey = `profitability_memo_${year}_${month}`;
 
+  const getAccountList = () => {
+    if (!data || !data.targetVsActual) return [];
+    return data.targetVsActual.map((item: any) => item.subCategory);
+  };
+
+  const getImpactForAccount = (accountName: string) => {
+    if (!data || !data.targetVsActual) return 'negative';
+    const account = data.targetVsActual.find((item: any) => item.subCategory === accountName);
+    if (!account) return 'negative';
+
+    const val = account.growthRate;
+    const mainCategory = account.mainCategory;
+    
+    // Logic from getGrowthColor in ProfitabilityTables
+    const isExpense = mainCategory === '변동비' || mainCategory === '고정비';
+    
+    if (isExpense) {
+      // For expenses, positive growth is bad (negative impact), negative growth is good (positive impact)
+      return val > 0 ? 'negative' : 'positive';
+    } else {
+      // For others (Sales, Profit), positive growth is good (positive impact), negative growth is bad (negative impact)
+      return val > 0 ? 'positive' : 'negative';
+    }
+  };
+
+  const getTrendForAccount = (accountName: string) => {
+    if (!data || !data.targetVsActual) return '';
+    const account = data.targetVsActual.find((item: any) => item.subCategory === accountName);
+    if (!account) return '';
+    // For growth rate, we just check if it's positive or negative
+    return account.growthRate > 0 ? ' 증가' : ' 감소';
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
+    let currentMemos: MemoItem[] = [];
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Migrate old data format (description: string) to new format (descriptions: string[])
-        const migrated = parsed.map((item: any) => ({
+        currentMemos = parsed.map((item: any) => ({
           ...item,
-          descriptions: item.descriptions || (item.description ? [item.description] : [''])
+          descriptions: item.descriptions || (item.description ? [item.description] : ['']),
+          accountName: item.accountName || item.topic.replace(/ (증가|감소)$/, '') // Fallback for old data
         }));
-        setMemos(migrated);
+        setMemos(currentMemos);
       } catch (e) {
         console.error(e);
       }
     } else {
       setMemos([]);
     }
+    
     setIsEditing(false);
   }, [year, month, storageKey]);
 
@@ -46,7 +84,6 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
   };
 
   const handleSave = () => {
-    // Filter out empty descriptions before saving
     const cleanedMemos = editMemos.map(memo => ({
       ...memo,
       descriptions: memo.descriptions.filter(d => d.trim() !== '')
@@ -161,24 +198,34 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
                 >
                   <Trash2 size={16} />
                 </button>
-                
-                <div className="flex gap-3 mb-4 pr-6">
-                  <select 
-                    value={memo.impact}
-                    onChange={(e) => updateMemo(memo.id, 'impact', e.target.value)}
-                    className={`text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${memo.impact === 'positive' ? 'text-blue-600 font-semibold' : 'text-red-600 font-semibold'}`}
-                  >
-                    <option value="positive">긍정 (+)</option>
-                    <option value="negative">부정 (-)</option>
-                  </select>
-                  
-                  <input 
-                    type="text" 
-                    placeholder="주제 입력 (예: 매출 감소)" 
-                    value={memo.topic}
-                    onChange={(e) => updateMemo(memo.id, 'topic', e.target.value)}
-                    className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                  />
+                               <div className="flex flex-col gap-3 mb-4 pr-6">
+                  <div className="flex gap-3">
+                    <div className={`px-3 py-2 text-sm font-bold rounded-md border ${memo.impact === 'positive' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-red-50 text-red-600 border-red-200'} flex items-center justify-center min-w-[80px]`}>
+                      {memo.impact === 'positive' ? '긍정 (+)' : '부정 (-)'}
+                    </div>
+                    
+                    <select 
+                      value={memo.accountName || ''}
+                      onChange={(e) => {
+                        const accountName = e.target.value;
+                        const trend = getTrendForAccount(accountName);
+                        const newTopic = accountName + trend;
+                        const newImpact = getImpactForAccount(accountName);
+                        setEditMemos(editMemos.map(m => m.id === memo.id ? { 
+                          ...m, 
+                          topic: newTopic, 
+                          accountName: accountName,
+                          impact: newImpact 
+                        } : m));
+                      }}
+                      className="flex-1 text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="" disabled>계정 선택</option>
+                      {getAccountList().map((acc: string) => (
+                        <option key={acc} value={acc}>{acc}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 
                 <div className="space-y-2">

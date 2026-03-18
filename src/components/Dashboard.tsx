@@ -8,8 +8,8 @@ import { MonthlyGoalVsSalesChart } from './MonthlyGoalVsSalesChart';
 import { SalesTrendChart } from './SalesTrendChart';
 import { ProfitabilityTables } from './ProfitabilityTables';
 import { motion } from 'motion/react';
-import axios from 'axios';
 import { RefreshCw } from 'lucide-react';
+import { googleSheetsService } from '../services/googleSheets';
 
 export const Dashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(2026);
@@ -21,62 +21,39 @@ export const Dashboard: React.FC = () => {
   });
   const [data, setData] = useState<MonthlyData[]>(mockData);
   const [profitabilityData, setProfitabilityData] = useState<ProfitabilityData>(mockProfitabilityData);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // Default to true for public CSV
   const [isLoading, setIsLoading] = useState(false);
-  const [spreadsheetId, setSpreadsheetId] = useState('1cMf3JF8KiywYRK3B0kVWLnNM29KmCAu_L-8I7Pd-P_8');
-  const [isEditingId, setIsEditingId] = useState(false);
 
   // Check Auth Status on Mount
   useEffect(() => {
     checkAuthStatus();
-    const savedId = localStorage.getItem('spreadsheetId');
-    if (savedId) {
-      setSpreadsheetId(savedId);
-    }
-  }, []);
-
-  // Listen for OAuth Success Message
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        checkAuthStatus();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const checkAuthStatus = async () => {
-    try {
-      const response = await axios.get('/api/auth/status');
-      if (response.data.isAuthenticated) {
-        setIsConnected(true);
-      }
-    } catch (error) {
-      console.error('Auth check failed', error);
-    }
+    const authenticated = await googleSheetsService.checkAuth();
+    setIsConnected(authenticated);
   };
 
-  // Fetch data whenever isConnected becomes true or spreadsheetId changes (and we are connected)
+  // Fetch data whenever isConnected becomes true or selected date changes
   useEffect(() => {
     if (isConnected) {
       fetchSheetData();
     }
-  }, [isConnected, spreadsheetId, selectedYear, selectedMonth]);
+  }, [isConnected, selectedYear, selectedMonth]);
 
   const fetchSheetData = async () => {
     setIsLoading(true);
     try {
-      const [mainResponse, profitabilityResponse] = await Promise.all([
-        axios.get(`/api/sheets/data?spreadsheetId=${spreadsheetId}`),
-        axios.get(`/api/sheets/profitability?spreadsheetId=${spreadsheetId}&year=${selectedYear}&month=${selectedMonth}`)
+      const [mainData, profitabilityData] = await Promise.all([
+        googleSheetsService.fetchData(),
+        googleSheetsService.fetchProfitabilityData(selectedYear, selectedMonth)
       ]);
       
-      if (mainResponse.data.data && mainResponse.data.data.length > 0) {
-        setData(mainResponse.data.data);
+      if (mainData && mainData.length > 0) {
+        setData(mainData);
       }
-      if (profitabilityResponse.data.data) {
-        setProfitabilityData(profitabilityResponse.data.data);
+      if (profitabilityData) {
+        setProfitabilityData(profitabilityData);
       }
     } catch (error) {
       console.error('Failed to fetch sheet data', error);
@@ -87,18 +64,6 @@ export const Dashboard: React.FC = () => {
 
   const handleConnect = async () => {
     // No-op for public CSV
-  };
-
-  const handleSpreadsheetIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSpreadsheetId(e.target.value);
-  };
-
-  const saveSpreadsheetId = () => {
-    localStorage.setItem('spreadsheetId', spreadsheetId);
-    setIsEditingId(false);
-    if (isConnected) {
-      fetchSheetData();
-    }
   };
 
   // 1. 26년 목표 매출액 대비 26년 누계 매출액 차트

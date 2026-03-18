@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ProfitabilityData } from '../data/mockData';
 import { ProfitabilityMemo } from './ProfitabilityMemo';
@@ -17,6 +17,13 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
     prevYear -= 1;
   }
 
+  const lastYear = selectedYear - 1;
+
+  const formatGrowth = (val: number, mainCategory: string) => {
+    const suffix = mainCategory === '매출' ? '%' : '%p';
+    return val.toFixed(1) + suffix;
+  };
+
   const formatPercent = (val: number) => {
     return val.toFixed(1) + '%';
   };
@@ -32,10 +39,18 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
     return 'bg-white';
   };
 
-  const getGrowthColor = (val: number) => {
-    if (val > 0) return 'text-blue-600';
-    if (val < 0) return 'text-red-600';
-    return 'text-gray-600';
+  const getGrowthColor = (val: number, mainCategory: string) => {
+    if (Math.abs(val) < 0.01) return 'text-gray-600';
+    
+    const isExpense = mainCategory === '변동비' || mainCategory === '고정비';
+    
+    if (isExpense) {
+      // For expenses, positive is bad (red), negative is good (blue)
+      return val > 0 ? 'text-red-600' : 'text-blue-600';
+    } else {
+      // For others (Sales, Profit), positive is good (blue), negative is bad (red)
+      return val > 0 ? 'text-blue-600' : 'text-red-600';
+    }
   };
 
   return (
@@ -136,8 +151,8 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
                       </td>
 
                       {/* Growth Rate */}
-                      <td className={`px-4 py-2 border border-gray-300 text-right font-medium ${getGrowthColor(row.growthRate)} ${isMain || isTotal ? bgClass : ''}`}>
-                        {formatPercent(row.growthRate)}
+                      <td className={`px-4 py-2 border border-gray-300 text-right font-medium ${getGrowthColor(row.growthRate, row.mainCategory)} ${isMain || isTotal ? bgClass : ''}`}>
+                        {formatGrowth(row.growthRate, row.mainCategory)}
                       </td>
                     </tr>
                   );
@@ -147,7 +162,11 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
           </div>
 
           <div className="lg:col-span-2 lg:border-l lg:border-gray-200 lg:pl-6">
-            <ProfitabilityMemo year={selectedYear} month={selectedMonth} />
+            <ProfitabilityMemo 
+              year={selectedYear} 
+              month={selectedMonth} 
+              data={data}
+            />
           </div>
         </div>
       </motion.div>
@@ -178,10 +197,10 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
             <thead className="bg-gray-100">
               <tr>
                 <th scope="col" colSpan={2} className="px-4 py-3 border border-gray-300 font-semibold">구분</th>
-                <th scope="col" colSpan={2} className="px-4 py-3 border border-gray-300 border-r-2 border-r-gray-800 font-semibold">~{prevYear.toString().slice(-2)}년 {selectedMonth}월</th>
+                <th scope="col" colSpan={2} className="px-4 py-3 border border-gray-300 border-r-2 border-r-gray-800 font-semibold">~{lastYear.toString().slice(-2)}년 {selectedMonth}월</th>
                 <th scope="col" colSpan={2} className="px-4 py-3 border border-gray-300 border-t-2 border-r-2 border-t-gray-800 border-r-gray-800 font-bold text-gray-900">~{selectedYear.toString().slice(-2)}년 {selectedMonth}월</th>
                 <th scope="col" className="px-4 py-3 border border-gray-300 font-semibold bg-yellow-50">전년<br/>누계비<br/>성장율</th>
-                <th scope="col" className="px-4 py-3 border border-gray-300 font-semibold">{prevYear.toString().slice(-2)}년 마감</th>
+                <th scope="col" className="px-4 py-3 border border-gray-300 font-semibold">{lastYear.toString().slice(-2)}년 마감</th>
                 <th scope="col" className="px-4 py-3 border border-gray-300 font-semibold">{selectedYear.toString().slice(-2)}년 목표</th>
               </tr>
             </thead>
@@ -233,6 +252,11 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
                 // Should show total/target columns (only for 매출, 변동비, 공헌이익)
                 const showTotalTarget = row.mainCategory === '매출' || row.mainCategory === '변동비' || row.mainCategory === '공헌이익';
 
+                // Calculate YoY Growth as %p for non-sales
+                const yoyGrowthValue = row.mainCategory === '매출' 
+                  ? row.yoyGrowth 
+                  : currYtdPercent - prevYtdPercent;
+
                 return (
                   <tr key={index} className="hover:bg-gray-50">
                     {renderMainCategory && (
@@ -267,19 +291,19 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
                     </td>
 
                     {/* YoY Growth Rate */}
-                    <td className={`px-4 py-2 border border-gray-300 text-right font-medium ${getGrowthColor(row.yoyGrowth)} ${isMain || isTotal ? bgClass : ''}`}>
-                      {formatPercent(row.yoyGrowth)}
+                    <td className={`px-4 py-2 border border-gray-300 text-right font-medium ${getGrowthColor(yoyGrowthValue, row.mainCategory)} ${isMain || isTotal ? bgClass : ''}`}>
+                      {formatGrowth(yoyGrowthValue, row.mainCategory)}
                     </td>
 
                     {/* Previous Year Total */}
-                    <td className={`px-4 py-2 border border-gray-300 text-right ${isMain || isTotal ? bgClass : ''}`}>
+                    <td className={`px-4 py-2 text-right ${showTotalTarget ? `border border-gray-300 ${isMain || isTotal ? bgClass : ''}` : 'bg-white'}`}>
                       {showTotalTarget ? (
                         row.mainCategory === '매출' ? formatNumber(row.previousYearTotal) : formatPercent(prevTotalPercent)
                       ) : ''}
                     </td>
 
                     {/* Current Year Target */}
-                    <td className={`px-4 py-2 border border-gray-300 text-right ${isMain || isTotal ? bgClass : ''}`}>
+                    <td className={`px-4 py-2 text-right ${showTotalTarget ? `border border-gray-300 ${isMain || isTotal ? bgClass : ''}` : 'bg-white'}`}>
                       {showTotalTarget ? (
                         row.mainCategory === '매출' ? formatNumber(row.currentYearTarget) : formatPercent(currTargetPercent)
                       ) : ''}

@@ -20,8 +20,8 @@ export const MonthlyGoalVsSalesChart: React.FC<MonthlyGoalVsSalesChartProps> = (
       name: `${d.month}월`,
       goal,
       sales,
-      achievement: goal > 0 ? ((sales / goal) * 100).toFixed(1) : '0.0',
-      isOver: sales >= goal,
+      achievement: (goal > 0 && sales > 0) ? ((sales / goal) * 100).toFixed(1) : null,
+      isOver: sales >= goal && sales > 0,
     };
   });
 
@@ -54,7 +54,7 @@ export const MonthlyGoalVsSalesChart: React.FC<MonthlyGoalVsSalesChartProps> = (
               fill="#ffffff" 
               fontSize={12} 
               fontWeight="bold"
-              formatter={(val: string) => `${val}%`}
+              formatter={(val: string | null) => val ? `${val}%` : ''}
             />
           </Bar>
         </ComposedChart>
