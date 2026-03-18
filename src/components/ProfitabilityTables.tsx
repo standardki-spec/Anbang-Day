@@ -175,7 +175,7 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
-        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-6"
+        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100"
       >
         <div className="overflow-x-auto">
           <div className="flex justify-between items-end mb-4">
