@@ -89,7 +89,8 @@ export const googleSheetsService = {
 
       // 1. Process main sheet for YoY targets
       const mainHeaders = mainRows[0] as string[];
-      const prevYearSalesColIdx = mainHeaders.findIndex(h => h.includes(`${prevYear.toString().slice(-2)}년 매출`));
+      const actualPrevYear = currentYear - 1;
+      const prevYearSalesColIdx = mainHeaders.findIndex(h => h.includes(`${actualPrevYear.toString().slice(-2)}년 매출`));
       const currYearTargetColIdx = mainHeaders.findIndex(h => h.includes(`${currentYear.toString().slice(-2)}년 목표`));
 
       let prevYearTotalSales = 0;

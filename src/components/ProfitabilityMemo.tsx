@@ -148,7 +148,7 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
                   {memo.descriptions && memo.descriptions.length > 0 ? (
                     <ul className="list-disc list-outside ml-5 text-base text-gray-800 space-y-1.5 leading-relaxed">
                       {memo.descriptions.map((desc, idx) => (
-                        <li key={idx} className="pl-1">{desc}</li>
+                        <li key={idx} className="pl-1 whitespace-pre-wrap">{desc}</li>
                       ))}
                     </ul>
                   ) : (
