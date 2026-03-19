@@ -32,6 +32,7 @@ export interface ProfitabilityYoYData {
 export interface ProfitabilityData {
   targetVsActual: ProfitabilityTargetData[];
   yoy: ProfitabilityYoYData[];
+  savedReason?: string;
 }
 
 export const mockProfitabilityData: ProfitabilityData = {

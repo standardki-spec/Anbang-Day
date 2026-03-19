@@ -4,6 +4,7 @@ import { MonthlyData, ProfitabilityData } from '../data/mockData';
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1092502501&single=true&output=csv';
 const PROFITABILITY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1722593857&single=true&output=csv';
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzZCej20r9yiPF7V_VVYw9GM2rqCtQrmnLRh-L_Nyd9Fq5xeTxjYhORew0vV6RUgYeV/exec';
 
 const parseCSV = (csvString: string): any[][] => {
   const result = Papa.parse(csvString, {
@@ -203,7 +204,9 @@ export const googleSheetsService = {
         };
       });
 
-      return { targetVsActual, yoy };
+      const savedReason = profRows[4] && profRows[4][9] ? profRows[4][9].toString() : '';
+
+      return { targetVsActual, yoy, savedReason };
     } catch (error) {
       console.error('Failed to fetch profitability data', error);
       throw error;
@@ -212,5 +215,23 @@ export const googleSheetsService = {
 
   async logout(): Promise<void> {
     // Dummy function for compatibility
+  },
+
+  async saveReason(text: string): Promise<void> {
+    try {
+      // Use text/plain to avoid CORS preflight issues with GAS
+      await axios.post(GAS_WEBAPP_URL, JSON.stringify({
+        reason: text,
+        row: 5,
+        col: 10
+      }), {
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        }
+      });
+    } catch (error) {
+      console.error('Failed to save reason to Google Sheets', error);
+      throw error;
+    }
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Save, X, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, ArrowRightLeft, Loader2 } from 'lucide-react';
 import { ProfitabilityData } from '../data/mockData';
+import { googleSheetsService } from '../services/googleSheets';
 
 interface MemoItem {
   id: string;
@@ -20,10 +21,32 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
   const [memos, setMemos] = useState<MemoItem[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editMemos, setEditMemos] = useState<MemoItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const storageKey = `profitability_memo_${year}_${month}`;
 
   useEffect(() => {
+    // Priority: 1. Google Sheets data (if available) 2. Local Storage
+    if (data.savedReason) {
+      try {
+        const parsed = JSON.parse(data.savedReason);
+        if (Array.isArray(parsed)) {
+          const currentMemos = parsed.map((item: any) => ({
+            ...item,
+            descriptions: item.descriptions || (item.description ? [item.description] : [''])
+          }));
+          setMemos(currentMemos);
+          localStorage.setItem(storageKey, JSON.stringify(currentMemos));
+          setIsEditing(false);
+          return;
+        }
+      } catch (e) {
+        // If not JSON, it might be raw text. We'll handle it as a single memo if needed, 
+        // but for now let's fall back to local storage or empty.
+        console.log('Saved reason is not JSON, falling back to local storage');
+      }
+    }
+
     const stored = localStorage.getItem(storageKey);
     let currentMemos: MemoItem[] = [];
     if (stored) {
@@ -42,21 +65,36 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
     }
     
     setIsEditing(false);
-  }, [year, month, storageKey]);
+  }, [year, month, storageKey, data.savedReason]);
 
   const handleEdit = () => {
     setEditMemos([...memos]);
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    const cleanedMemos = editMemos.map(memo => ({
-      ...memo,
-      descriptions: memo.descriptions.filter(d => d.trim() !== '')
-    }));
-    setMemos(cleanedMemos);
-    localStorage.setItem(storageKey, JSON.stringify(cleanedMemos));
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const cleanedMemos = editMemos.map(memo => ({
+        ...memo,
+        descriptions: memo.descriptions.filter(d => d.trim() !== '')
+      }));
+      
+      // Save to local storage
+      setMemos(cleanedMemos);
+      localStorage.setItem(storageKey, JSON.stringify(cleanedMemos));
+      
+      // Save to Google Sheets via GAS
+      // We send the JSON string so we can restore it later
+      await googleSheetsService.saveReason(JSON.stringify(cleanedMemos));
+      
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save to Google Sheets', error);
+      alert('구글 시트 저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -125,10 +163,15 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
             </button>
           ) : (
             <div className="flex space-x-2">
-              <button onClick={handleSave} className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors" title="저장">
-                <Save size={18} />
+              <button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className={`p-2 rounded-full transition-colors ${isSaving ? 'text-gray-300' : 'text-green-600 hover:bg-green-50'}`} 
+                title="저장"
+              >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               </button>
-              <button onClick={handleCancel} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="취소">
+              <button onClick={handleCancel} disabled={isSaving} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="취소">
                 <X size={18} />
               </button>
             </div>
