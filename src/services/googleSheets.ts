@@ -4,7 +4,7 @@ import { MonthlyData, ProfitabilityData } from '../data/mockData';
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1092502501&single=true&output=csv';
 const PROFITABILITY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1722593857&single=true&output=csv';
-const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwXDXq1DzDTBz2HxdFBMfibZ5HAc9cqTv2zdej9uGy5TUxp2FVyzR5A8kURXUYpf0Em/exec';
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyvb-wpFaEcBpBTdqomfw8vbFySbAnjJQyg_weTBziszuHi8Ac3uPfeEZzTsbnavLLr/exec';
 
 const parseCSV = (csvString: string): any[][] => {
   const result = Papa.parse(csvString, {
@@ -24,14 +24,14 @@ export const googleSheetsService = {
     return '';
   },
 
-  async fetchData(): Promise<MonthlyData[]> {
+  async fetchData(year: number): Promise<MonthlyData[]> {
     try {
       const response = await axios.get(CSV_URL);
       const rows = parseCSV(response.data);
 
       if (!rows || rows.length === 0) return [];
 
-      const dataRows = rows.slice(1);
+      const dataRows = rows.slice(1, 13); // Keep the first 12 months for numbers as per original logic
       const parseNum = (val: any, isMonth: boolean = false) => {
         if (!val) return 0;
         const cleanVal = val.toString().replace(/[^0-9.-]/g, '');
@@ -41,16 +41,25 @@ export const googleSheetsService = {
         return Math.round(num / 1000000);
       };
 
-      return dataRows.map((row: any[]) => ({
-        month: parseNum(row[0], true),
-        goal2024: parseNum(row[1]),
-        sales2024: parseNum(row[2]),
-        goal2025: parseNum(row[3]),
-        sales2025: parseNum(row[4]),
-        goal2026: parseNum(row[5]),
-        sales2026: parseNum(row[6]),
-        reason: row[9] ? row[9].toString() : '',
-      })).filter((d: any) => d.month > 0 && d.month <= 12);
+      return dataRows.map((row: any[], idx: number) => {
+        const month = idx + 1;
+        // Row Index = 5 + ((year - 2024) * 12) + month
+        // Array Index = Row Index - 1
+        const rowIndex = 4 + ((year - 2024) * 12) + month;
+        const reasonRow = rows[rowIndex];
+        const reason = reasonRow && reasonRow[9] ? reasonRow[9].toString() : '';
+
+        return {
+          month: parseNum(row[0], true),
+          goal2024: parseNum(row[1]),
+          sales2024: parseNum(row[2]),
+          goal2025: parseNum(row[3]),
+          sales2025: parseNum(row[4]),
+          goal2026: parseNum(row[5]),
+          sales2026: parseNum(row[6]),
+          reason: reason,
+        };
+      }).filter((d: any) => d.month > 0 && d.month <= 12);
     } catch (error) {
       console.error('Failed to fetch MonthlyData', error);
       throw error;
@@ -205,7 +214,10 @@ export const googleSheetsService = {
         };
       });
 
-      const savedReason = mainRows[currentMonth] && mainRows[currentMonth][9] ? mainRows[currentMonth][9].toString() : '';
+      // Row Index = 5 + ((year - 2024) * 12) + month
+      // Array Index = Row Index - 1
+      const rowIndex = 4 + ((year - 2024) * 12) + month;
+      const savedReason = mainRows[rowIndex] && mainRows[rowIndex][9] ? mainRows[rowIndex][9].toString() : '';
 
       return { targetVsActual, yoy, savedReason };
     } catch (error) {
@@ -230,6 +242,7 @@ export const googleSheetsService = {
           'Content-Type': 'text/plain;charset=utf-8'
         }
       });
+      console.log('Successfully saved reason to Google Sheets');
     } catch (error) {
       console.error('Failed to save reason to Google Sheets', error);
       throw error;

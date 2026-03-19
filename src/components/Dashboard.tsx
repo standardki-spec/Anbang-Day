@@ -45,7 +45,7 @@ export const Dashboard: React.FC = () => {
     setIsLoading(true);
     try {
       const [mainData, profitabilityData] = await Promise.all([
-        googleSheetsService.fetchData(),
+        googleSheetsService.fetchData(selectedYear),
         googleSheetsService.fetchProfitabilityData(selectedYear, selectedMonth)
       ]);
       

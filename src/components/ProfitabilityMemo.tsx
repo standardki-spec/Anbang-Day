@@ -90,11 +90,11 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
       await googleSheetsService.saveReason(year, month, JSON.stringify(cleanedMemos));
       
       setIsEditing(false);
-      alert('성공적으로 저장되었습니다.');
+      // alert('성공적으로 저장되었습니다.');
       if (onSaveSuccess) onSaveSuccess();
     } catch (error) {
       console.error('Failed to save to Google Sheets', error);
-      alert('구글 시트 저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
+      // alert('구글 시트 저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
     } finally {
       setIsSaving(false);
     }
