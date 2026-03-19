@@ -15,9 +15,10 @@ interface ProfitabilityMemoProps {
   year: number;
   month: number;
   data: ProfitabilityData;
+  onSaveSuccess?: () => void;
 }
 
-export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, month, data }) => {
+export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, month, data, onSaveSuccess }) => {
   const [memos, setMemos] = useState<MemoItem[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editMemos, setEditMemos] = useState<MemoItem[]>([]);
@@ -86,9 +87,11 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
       
       // Save to Google Sheets via GAS
       // We send the JSON string so we can restore it later
-      await googleSheetsService.saveReason(JSON.stringify(cleanedMemos));
+      await googleSheetsService.saveReason(year, month, JSON.stringify(cleanedMemos));
       
       setIsEditing(false);
+      alert('성공적으로 저장되었습니다.');
+      if (onSaveSuccess) onSaveSuccess();
     } catch (error) {
       console.error('Failed to save to Google Sheets', error);
       alert('구글 시트 저장에 실패했습니다. 네트워크 상태를 확인해주세요.');

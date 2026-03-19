@@ -7,9 +7,10 @@ interface ProfitabilityTablesProps {
   data: ProfitabilityData;
   selectedYear: number;
   selectedMonth: number;
+  onSaveSuccess?: () => void;
 }
 
-export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, selectedYear, selectedMonth }) => {
+export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, selectedYear, selectedMonth, onSaveSuccess }) => {
   let prevYear = selectedYear;
   let prevMonth = selectedMonth - 1;
   if (prevMonth === 0) {
@@ -166,6 +167,7 @@ export const ProfitabilityTables: React.FC<ProfitabilityTablesProps> = ({ data, 
               year={selectedYear} 
               month={selectedMonth} 
               data={data}
+              onSaveSuccess={onSaveSuccess}
             />
           </div>
         </div>

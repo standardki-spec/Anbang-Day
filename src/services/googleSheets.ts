@@ -4,7 +4,7 @@ import { MonthlyData, ProfitabilityData } from '../data/mockData';
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1092502501&single=true&output=csv';
 const PROFITABILITY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1722593857&single=true&output=csv';
-const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzZCej20r9yiPF7V_VVYw9GM2rqCtQrmnLRh-L_Nyd9Fq5xeTxjYhORew0vV6RUgYeV/exec';
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwXDXq1DzDTBz2HxdFBMfibZ5HAc9cqTv2zdej9uGy5TUxp2FVyzR5A8kURXUYpf0Em/exec';
 
 const parseCSV = (csvString: string): any[][] => {
   const result = Papa.parse(csvString, {
@@ -49,6 +49,7 @@ export const googleSheetsService = {
         sales2025: parseNum(row[4]),
         goal2026: parseNum(row[5]),
         sales2026: parseNum(row[6]),
+        reason: row[9] ? row[9].toString() : '',
       })).filter((d: any) => d.month > 0 && d.month <= 12);
     } catch (error) {
       console.error('Failed to fetch MonthlyData', error);
@@ -204,7 +205,7 @@ export const googleSheetsService = {
         };
       });
 
-      const savedReason = profRows[4] && profRows[4][9] ? profRows[4][9].toString() : '';
+      const savedReason = mainRows[currentMonth] && mainRows[currentMonth][9] ? mainRows[currentMonth][9].toString() : '';
 
       return { targetVsActual, yoy, savedReason };
     } catch (error) {
@@ -217,13 +218,13 @@ export const googleSheetsService = {
     // Dummy function for compatibility
   },
 
-  async saveReason(text: string): Promise<void> {
+  async saveReason(year: number, month: number, text: string): Promise<void> {
     try {
       // Use text/plain to avoid CORS preflight issues with GAS
       await axios.post(GAS_WEBAPP_URL, JSON.stringify({
-        reason: text,
-        row: 5,
-        col: 10
+        year,
+        month,
+        reason: text
       }), {
         headers: {
           'Content-Type': 'text/plain;charset=utf-8'

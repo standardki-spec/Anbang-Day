@@ -209,7 +209,12 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* Profitability Tables */}
-        <ProfitabilityTables data={profitabilityData} selectedYear={selectedYear} selectedMonth={selectedMonth} />
+        <ProfitabilityTables 
+          data={profitabilityData} 
+          selectedYear={selectedYear} 
+          selectedMonth={selectedMonth} 
+          onSaveSuccess={fetchSheetData}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ export interface MonthlyData {
   goal2025: number;  // D행: 25년 목표
   sales2026: number; // G행: 26년 매출
   goal2026: number;  // F행: 26년 매출 목표
+  reason?: string;   // J행: 주요 변동 사유
 }
 
 export interface ProfitabilityTargetData {
