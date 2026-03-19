@@ -26,12 +26,13 @@ export const googleSheetsService = {
 
   async fetchData(year: number): Promise<MonthlyData[]> {
     try {
-      const response = await axios.get(CSV_URL);
+      const response = await axios.get(CSV_URL + '&t=' + new Date().getTime());
       const rows = parseCSV(response.data);
 
       if (!rows || rows.length === 0) return [];
 
-      const dataRows = rows.slice(1, 13); // Keep the first 12 months for numbers as per original logic
+      const allDataRows = rows.slice(1);
+      const displayDataRows = rows.slice(1, 13); // Keep the first 12 months for numbers as per original logic
       const parseNum = (val: any, isMonth: boolean = false) => {
         if (!val) return 0;
         const cleanVal = val.toString().replace(/[^0-9.-]/g, '');
@@ -41,12 +42,13 @@ export const googleSheetsService = {
         return Math.round(num / 1000000);
       };
 
-      return dataRows.map((row: any[], idx: number) => {
+      return displayDataRows.map((row: any[], idx: number) => {
         const month = idx + 1;
-        // Row Index = 5 + ((year - 2024) * 12) + month
-        // Array Index = Row Index - 1
-        const rowIndex = 4 + ((year - 2024) * 12) + month;
-        const reasonRow = rows[rowIndex];
+        // targetRowIndex = (year - 2024) * 12 + month (헤더 제외 dataRows 기준 인덱스)
+        // Note: The user provided formula seems to be 1-based or offset. 
+        // If year=2024, month=1, targetRowIndex = 1.
+        const targetRowIndex = (year - 2024) * 12 + month;
+        const reasonRow = allDataRows[targetRowIndex];
         const reason = reasonRow && reasonRow[9] ? reasonRow[9].toString() : '';
 
         return {
@@ -69,8 +71,8 @@ export const googleSheetsService = {
   async fetchProfitabilityData(year: number, month: number): Promise<ProfitabilityData> {
     try {
       const [profRes, mainRes] = await Promise.all([
-        axios.get(PROFITABILITY_CSV_URL),
-        axios.get(CSV_URL)
+        axios.get(PROFITABILITY_CSV_URL + '&t=' + new Date().getTime()),
+        axios.get(CSV_URL + '&t=' + new Date().getTime())
       ]);
 
       const profRows = parseCSV(profRes.data);
@@ -214,10 +216,10 @@ export const googleSheetsService = {
         };
       });
 
-      // Row Index = 5 + ((year - 2024) * 12) + month
-      // Array Index = Row Index - 1
-      const rowIndex = 4 + ((year - 2024) * 12) + month;
-      const savedReason = mainRows[rowIndex] && mainRows[rowIndex][9] ? mainRows[rowIndex][9].toString() : '';
+      // targetRowIndex = (year - 2024) * 12 + month (헤더 제외 dataRows 기준 인덱스)
+      const dataRows = mainRows.slice(1);
+      const targetRowIndex = (year - 2024) * 12 + month;
+      const savedReason = dataRows[targetRowIndex] && dataRows[targetRowIndex][9] ? dataRows[targetRowIndex][9].toString() : '';
 
       return { targetVsActual, yoy, savedReason };
     } catch (error) {

@@ -24,10 +24,8 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
   const [editMemos, setEditMemos] = useState<MemoItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  const storageKey = `profitability_memo_${year}_${month}`;
-
   useEffect(() => {
-    // Priority: 1. Google Sheets data (if available) 2. Local Storage
+    // Priority: 1. Google Sheets data (if available)
     if (data.savedReason) {
       try {
         const parsed = JSON.parse(data.savedReason);
@@ -37,36 +35,19 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
             descriptions: item.descriptions || (item.description ? [item.description] : [''])
           }));
           setMemos(currentMemos);
-          localStorage.setItem(storageKey, JSON.stringify(currentMemos));
           setIsEditing(false);
           return;
         }
       } catch (e) {
         // If not JSON, it might be raw text. We'll handle it as a single memo if needed, 
-        // but for now let's fall back to local storage or empty.
-        console.log('Saved reason is not JSON, falling back to local storage');
+        // but for now let's fall back to empty.
+        console.log('Saved reason is not JSON');
       }
     }
 
-    const stored = localStorage.getItem(storageKey);
-    let currentMemos: MemoItem[] = [];
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        currentMemos = parsed.map((item: any) => ({
-          ...item,
-          descriptions: item.descriptions || (item.description ? [item.description] : [''])
-        }));
-        setMemos(currentMemos);
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      setMemos([]);
-    }
-    
+    setMemos([]);
     setIsEditing(false);
-  }, [year, month, storageKey, data.savedReason]);
+  }, [year, month, data.savedReason]);
 
   const handleEdit = () => {
     setEditMemos([...memos]);
@@ -81,14 +62,11 @@ export const ProfitabilityMemo: React.FC<ProfitabilityMemoProps> = ({ year, mont
         descriptions: memo.descriptions.filter(d => d.trim() !== '')
       }));
       
-      // Save to local storage
-      setMemos(cleanedMemos);
-      localStorage.setItem(storageKey, JSON.stringify(cleanedMemos));
-      
       // Save to Google Sheets via GAS
       // We send the JSON string so we can restore it later
       await googleSheetsService.saveReason(year, month, JSON.stringify(cleanedMemos));
       
+      setMemos(cleanedMemos);
       setIsEditing(false);
       // alert('성공적으로 저장되었습니다.');
       if (onSaveSuccess) onSaveSuccess();
