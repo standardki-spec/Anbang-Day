@@ -112,7 +112,7 @@ export const Dashboard: React.FC = () => {
         >
           <div className="flex flex-col md:flex-row justify-between items-center w-full">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-800">매출 대시보드</h1>
+              <h1 className="text-2xl font-bold text-gray-800">앉방데이 대시보드</h1>
               <span className="text-sm text-green-600 font-medium flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                 연동됨 (Public CSV)
