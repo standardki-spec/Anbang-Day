@@ -10,7 +10,7 @@ const getFreshUrl = (url: string) => `${url}&t=${new Date().getTime()}`;
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1092502501&single=true&output=csv';
 const PROFITABILITY_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSaFKe2m2x6HyEePar5T_yE4xTAzJ5QFs2pveVPM0SJXiKr0QrJoEYiaCAJ4L3-HROBj51_kAwlUXq6/pub?gid=1722593857&single=true&output=csv';
-const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyvb-wpFaEcBpBTdqomfw8vbFySbAnjJQyg_weTBziszuHi8Ac3uPfeEZzTsbnavLLr/exec';
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzEw7HtLkv5jGLBeObReEbAq9wOqOVknXpeBe8spE516NXGn53_qZwRjFWFS2MhENVz/exec';
 
 const parseCSV = (csvString: string): any[][] => {
   const result = Papa.parse(csvString, {
@@ -30,7 +30,7 @@ export const googleSheetsService = {
 
       if (!rows || rows.length === 0) return [];
 
-      const allDataRows = rows.slice(1); // 헤더(1행) 제외, allDataRows[0]은 실제 2행
+      const allDataRows = rows.slice(1); // 헤더(1행) 제외
       
       const parseNum = (val: any, isMonth: boolean = false) => {
         if (!val) return 0;
@@ -45,13 +45,13 @@ export const googleSheetsService = {
         const month = idx + 1;
         
         /**
-         * [행 계산 로직 교정] 
-         * 24년 1월이 J6에 있다면: ((2024-2024)*12) + 1 + 3 = 4 
-         * allDataRows[4]는 실제 시트의 6행입니다. (헤더 제외했으므로 2행=0, 3행=1, 4행=2, 5행=3, 6행=4)
+         * [데이터 매칭 로직 개선]
+         * A열(index 0)에서 YYYYMM 형식의 날짜를 찾아 매칭합니다.
+         * 사유(reason)는 B열(index 1)에서 가져옵니다.
          */
-        const targetRowIndex = ((year - 2024) * 12) + month + 3; 
-        const reasonRow = allDataRows[targetRowIndex];
-        const reason = reasonRow && reasonRow[9] ? reasonRow[9].toString() : '';
+        const targetYYYYMM = `${year}${month.toString().padStart(2, '0')}`;
+        const matchedRow = allDataRows.find(row => row[0]?.toString().trim() === targetYYYYMM);
+        const reason = matchedRow && matchedRow[1] ? matchedRow[1].toString() : '';
 
         const chartRow = allDataRows[idx] || []; 
 
@@ -176,9 +176,14 @@ export const googleSheetsService = {
         };
       });
 
-      // [사유 불러오기 인덱스 교정] J6 셀 타겟팅
-      const targetRowIndex = ((year - 2024) * 12) + month + 3; 
-      const savedReason = allDataRows[targetRowIndex] && allDataRows[targetRowIndex][9] ? allDataRows[targetRowIndex][9].toString() : '';
+      /**
+       * [데이터 매칭 로직 개선]
+       * A열(index 0)에서 YYYYMM 형식의 날짜를 찾아 매칭합니다.
+       * 사유(savedReason)는 B열(index 1)에서 가져옵니다.
+       */
+      const targetYYYYMM = `${year}${month.toString().padStart(2, '0')}`;
+      const matchedRow = allDataRows.find(row => row[0]?.toString().trim() === targetYYYYMM);
+      const savedReason = matchedRow && matchedRow[1] ? matchedRow[1].toString() : '';
 
       return { targetVsActual, yoy, savedReason };
     } catch (error) {
