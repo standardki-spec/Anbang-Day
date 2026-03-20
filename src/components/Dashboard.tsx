@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { mockData, getYTD, getGoalYTD, getTotalGoal, MonthlyData, mockProfitabilityData, ProfitabilityData } from '../data/mockData';
+import { getYTD, getGoalYTD, getTotalGoal, MonthlyData, ProfitabilityData } from '../data/mockData';
 import { DateFilter } from './DateFilter';
 import { GoalVsSalesChart } from './GoalVsSalesChart';
 import { MonthlyProgressChart } from './MonthlyProgressChart';
@@ -8,23 +8,23 @@ import { MonthlyGoalVsSalesChart } from './MonthlyGoalVsSalesChart';
 import { SalesTrendChart } from './SalesTrendChart';
 import { ProfitabilityTables } from './ProfitabilityTables';
 import { motion } from 'motion/react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import { googleSheetsService } from '../services/googleSheets';
 
 export const Dashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(2026);
-  // Default to previous month. If current month is Jan (0), set to Dec (12).
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
-    const currentMonth = now.getMonth(); // 0-11
+    const currentMonth = now.getMonth();
     return currentMonth === 0 ? 12 : currentMonth;
   });
-  const [data, setData] = useState<MonthlyData[]>(mockData);
-  const [profitabilityData, setProfitabilityData] = useState<ProfitabilityData>(mockProfitabilityData);
-  const [isConnected, setIsConnected] = useState(true); // Default to true for public CSV
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Check Auth Status on Mount
+  // 초기 데이터를 빈 상태로 설정하여 로딩 중 Mock Data 노출 방지
+  const [data, setData] = useState<MonthlyData[]>([]);
+  const [profitabilityData, setProfitabilityData] = useState<ProfitabilityData | null>(null);
+  const [isConnected, setIsConnected] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -34,7 +34,6 @@ export const Dashboard: React.FC = () => {
     setIsConnected(authenticated);
   };
 
-  // Fetch data whenever isConnected becomes true or selected date changes
   useEffect(() => {
     if (isConnected) {
       fetchSheetData();
@@ -44,7 +43,7 @@ export const Dashboard: React.FC = () => {
   const fetchSheetData = async () => {
     setIsLoading(true);
     try {
-      const [mainData, profitabilityData] = await Promise.all([
+      const [mainData, profData] = await Promise.all([
         googleSheetsService.fetchData(selectedYear),
         googleSheetsService.fetchProfitabilityData(selectedYear, selectedMonth)
       ]);
@@ -52,40 +51,31 @@ export const Dashboard: React.FC = () => {
       if (mainData && mainData.length > 0) {
         setData(mainData);
       }
-      if (profitabilityData) {
-        setProfitabilityData(profitabilityData);
+      if (profData) {
+        setProfitabilityData(profData);
       }
     } catch (error) {
       console.error('Failed to fetch sheet data', error);
     } finally {
-      setIsLoading(false);
+      // 데이터가 스테이트에 반영될 시간을 벌기 위해 미세한 지연 후 로딩 해제
+      setTimeout(() => setIsLoading(false), 100);
     }
   };
 
-  const handleConnect = async () => {
-    // No-op for public CSV
-  };
-
-  // 1. 26년 목표 매출액 대비 26년 누계 매출액 차트
-  // Determine goal and sales based on selected year
-  const currentYearGoal = getTotalGoal(data, selectedYear);
-  const currentYearSales = getYTD(data, selectedYear, selectedMonth);
+  // 계산 로직 (데이터가 없을 경우를 대비해 기본값 0 설정)
+  const currentYearGoal = data.length > 0 ? getTotalGoal(data, selectedYear) : 0;
+  const currentYearSales = data.length > 0 ? getYTD(data, selectedYear, selectedMonth) : 0;
   const currentYearLabel = `${selectedYear}년`;
-
-  // 2. 당월 누계 목표비 매출 누계 매출 차트
-  const ytdGoal = getGoalYTD(data, selectedYear, selectedMonth);
-  const ytdSales = getYTD(data, selectedYear, selectedMonth);
-
-  // 3. 2개년 누계 매출 YTD (Compare Selected Year vs Previous Year)
+  const ytdGoal = data.length > 0 ? getGoalYTD(data, selectedYear, selectedMonth) : 0;
+  const ytdSales = data.length > 0 ? getYTD(data, selectedYear, selectedMonth) : 0;
   const prevYear = selectedYear - 1;
-  const ytdSalesPrev = getYTD(data, prevYear, selectedMonth);
+  const ytdSalesPrev = data.length > 0 ? getYTD(data, prevYear, selectedMonth) : 0;
 
-  // 5. 2개년 월별 매출 추이 (Selected Year vs Previous Year)
   const trendData = useMemo(() => {
+    if (data.length === 0) return [];
     return data.map((d) => {
       let salesPrev = 0;
       let salesCurrent = 0;
-
       if (prevYear === 2025) salesPrev = d.sales2025;
       else if (prevYear === 2024) salesPrev = d.sales2024;
       
@@ -101,10 +91,20 @@ export const Dashboard: React.FC = () => {
     });
   }, [data, selectedYear, prevYear]);
 
+  // 로딩 화면 정의
+  if (isLoading && data.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center font-sans">
+        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+        <h2 className="text-xl font-semibold text-gray-700">데이터 로딩 중</h2>
+        <p className="text-gray-400 mt-2">잠시만 기다려 주세요...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-900">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header & Filter */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -135,9 +135,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Top Row: 3 Charts */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Chart 1: Goal vs Cumulative */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -149,13 +147,9 @@ export const Dashboard: React.FC = () => {
               <p className="text-2xl font-bold text-blue-600">{currentYearSales.toLocaleString()}M</p>
               <p className="text-sm text-gray-500">목표: {currentYearGoal.toLocaleString()}M</p>
             </div>
-            <GoalVsSalesChart 
-              goal={currentYearGoal} 
-              current={currentYearSales} 
-            />
+            <GoalVsSalesChart goal={currentYearGoal} current={currentYearSales} />
           </motion.div>
 
-          {/* Chart 2: Current Month Cumulative Goal vs Sales */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -163,13 +157,9 @@ export const Dashboard: React.FC = () => {
             className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center"
           >
             <h2 className="text-lg font-semibold mb-4 text-center">당월 누계 목표비 매출 누계</h2>
-            <MonthlyProgressChart 
-              goal={ytdGoal} 
-              sales={ytdSales} 
-            />
+            <MonthlyProgressChart goal={ytdGoal} sales={ytdSales} />
           </motion.div>
 
-          {/* Chart 3: 2-Year YTD Comparison */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -186,7 +176,6 @@ export const Dashboard: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Middle Row: Monthly Goal vs Sales Achievement */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -197,7 +186,6 @@ export const Dashboard: React.FC = () => {
           <MonthlyGoalVsSalesChart data={data} year={selectedYear} />
         </motion.div>
 
-        {/* Bottom Row: 2-Year Sales Trend */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -208,13 +196,14 @@ export const Dashboard: React.FC = () => {
           <SalesTrendChart data={trendData} currentYear={selectedYear} prevYear={prevYear} />
         </motion.div>
 
-        {/* Profitability Tables */}
-        <ProfitabilityTables 
-          data={profitabilityData} 
-          selectedYear={selectedYear} 
-          selectedMonth={selectedMonth} 
-          onSaveSuccess={fetchSheetData}
-        />
+        {profitabilityData && (
+          <ProfitabilityTables 
+            data={profitabilityData} 
+            selectedYear={selectedYear} 
+            selectedMonth={selectedMonth} 
+            onSaveSuccess={fetchSheetData}
+          />
+        )}
       </div>
     </div>
   );
